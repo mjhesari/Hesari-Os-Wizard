@@ -100,3 +100,21 @@ test('Repeated clicks during a deployment send only one request', async ({ page 
     finish();
     await expect(page.locator('#deploymentStatus')).toHaveText('Failed');
 });
+
+
+test('Real Worker runtime serves assets and rejects cross-origin installs', async ({ request }) => {
+    const home = await request.get('/');
+    expect(home.status()).toBe(200);
+    expect(await home.text()).toContain('HESARI OS');
+    expect(home.headers()['referrer-policy']).toBe('no-referrer');
+    expect(home.headers()['cache-control']).toBe('no-store');
+    for (const [path, type] of [['/styles.css', 'text/css'], ['/app.js', 'javascript'], ['/favicon.svg', 'image/svg+xml']]) {
+        const asset = await request.get(path);
+        expect(asset.status()).toBe(200);
+        expect(asset.headers()['content-type']).toContain(type);
+    }
+    const missing = await request.get('/missing-file.txt');
+    expect(missing.status()).toBe(404);
+    const rejected = await request.post('/api/deploy', { headers: { Origin: 'https://other.example' } });
+    expect(rejected.status()).toBe(403);
+});

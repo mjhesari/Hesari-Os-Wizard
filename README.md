@@ -77,7 +77,7 @@ pwsh -NoProfile -File tests/powershell/installer.tests.ps1
 npx wrangler deploy --dry-run
 ```
 
-Tests cover Workers and Pages API flows, fresh accounts, KV bindings, generated panel credentials, invalid tokens, private-link encryption, interrupted streams, desktop/mobile interactions, installer checksum verification, and download failures. Cloudflare requests are simulated; the tests do not create live Cloudflare resources.
+Tests cover Workers and Pages API flows, fresh accounts, KV bindings, generated panel credentials, invalid tokens, private-link encryption, interrupted streams, desktop/mobile interactions, installer checksum verification, and download failures. Browser tests run against the real local Workers runtime and static-assets binding; Cloudflare account API calls are simulated. The tests do not create live Cloudflare resources.
 
 `npm run preview` serves only the static interface on `http://127.0.0.1:4173`. Use `npm run dev` for the real web installation endpoint.
 
