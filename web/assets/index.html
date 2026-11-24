@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HESARI OS · Deployment workspace</title>
+    <meta name="description" content="Install your HESARI OS network workspace on Cloudflare Workers or Pages.">
+    <meta name="theme-color" content="#0B1120">
+    <meta name="referrer" content="no-referrer">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+</head>
+<body>
+    <a class="skip-link" href="#installation">Skip to installation</a>
+    <aside class="app-sidebar" aria-label="Workspace navigation">
+        <a class="sidebar-brand" href="#installation">
+            <img src="/favicon.svg" alt="" width="44" height="44">
+            <div><strong>HESARI OS</strong><small>PERSONAL COMMAND CENTER</small></div>
+        </a>
+        <p class="sidebar-label">WORKSPACE / DEPLOY</p>
+        <nav class="sidebar-nav">
+            <a href="#installation" aria-current="location"><svg aria-hidden="true"><use href="#icon-grid"/></svg>Installation</a>
+            <a href="#deployment-log"><svg aria-hidden="true"><use href="#icon-terminal"/></svg>Deployment log</a>
+            <a href="#command-line"><svg aria-hidden="true"><use href="#icon-code"/></svg>Command line</a>
+            <a href="https://github.com/mjhesari/Hesari-Os" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true"><use href="#icon-layers"/></svg>HESARI OS</a>
+        </nav>
+        <div class="sidebar-bottom">
+            <a href="https://mj-hesari.ir" target="_blank" rel="noopener noreferrer">MJ Hesari</a>
+            <p>Build. Manage. Evolve.</p>
+        </div>
+    </aside>
+    <main class="workspace">
+        <header class="workspace-header">
+            <div class="header-title">Deployment workspace <span class="panel-version">v3.1.0</span></div>
+            <div class="header-actions"><span class="header-context">HESARI / INFRASTRUCTURE</span><a href="https://github.com/mjhesari/Hesari-Os-Wizard" target="_blank" rel="noopener noreferrer">GitHub</a></div>
+        </header>
+        <section class="command-hero" aria-labelledby="workspace-heading">
+            <div><p class="eyebrow">YOUR WORKSPACE STARTS HERE</p><h1 id="workspace-heading">Build. Manage. Evolve.</h1><p>Bring your network workspace online. Install HESARI OS on your own Cloudflare account in a few simple steps.</p></div>
+            <div class="hero-emblem" aria-hidden="true"><img src="/favicon.svg" alt="" width="64" height="64"></div>
+        </section>
+        <div class="workspace-grid">
+            <section id="installation" class="card install-card" aria-labelledby="install-heading">
+                <div class="section-heading"><h2 id="install-heading"><svg aria-hidden="true"><use href="#icon-cloud"/></svg>Install your workspace</h2><span class="tag">CLOUDFLARE</span></div>
+                <p class="section-note">Your account. Your infrastructure. Your control.</p>
+                <div class="setup-guide" id="steps">
+                    <p><span class="step-mark" aria-hidden="true">1</span><span><a href="https://dash.cloudflare.com/sign-up" target="_blank" rel="noopener noreferrer">Create a Cloudflare account</a> and verify your email.</span></p>
+                    <p><span class="step-mark" aria-hidden="true">2</span><span><a id="tokenTemplate" href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">Create an API token</a> using our permission template.</span></p>
+                    <p><span class="step-mark" aria-hidden="true">3</span><span>Paste your token, choose a destination, and install.</span></p>
+                </div>
+                <div id="accountBanner" class="account-banner" hidden><svg aria-hidden="true"><use href="#icon-check"/></svg><div><strong>Account connected</strong><span id="user"></span></div><button type="button" id="changeAccount" class="text-button">Change</button></div>
+                <form id="deployForm">
+                    <div id="apiTokenGroup" class="form-control">
+                        <label for="apiToken">Cloudflare API token</label>
+                        <div class="input-wrapper"><input id="apiToken" name="apiToken" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API token" required aria-describedby="tokenHint"><button id="togglePassword" class="icon-button" type="button" aria-label="Show token" aria-pressed="false"><svg aria-hidden="true"><use href="#icon-eye"/></svg></button></div>
+                        <p id="tokenHint" class="field-hint">Choose “Continue to summary”, then “Create Token” in Cloudflare.</p>
+                    </div>
+                    <fieldset class="destination-group"><legend>Deployment destination</legend><div class="destination-options">
+                        <label class="destination"><input type="radio" name="deployType" value="workers" checked><svg aria-hidden="true"><use href="#icon-cloud"/></svg><span><strong>Workers</strong><small>workers.dev</small></span><span class="radio-mark" aria-hidden="true"></span></label>
+                        <label class="destination"><input type="radio" name="deployType" value="pages"><svg aria-hidden="true"><use href="#icon-layers"/></svg><span><strong>Pages</strong><small>pages.dev</small></span><span class="radio-mark" aria-hidden="true"></span></label>
+                    </div></fieldset>
+                    <p id="formError" class="form-error" role="alert" hidden></p>
+                    <button id="installButton" type="submit" class="button primary-button"><svg aria-hidden="true"><use href="#icon-cloud"/></svg><span id="installLabel">Install HESARI OS</span></button>
+                    <p class="form-note">Creates a new workspace with its own storage and private panel URL.</p>
+                </form>
+            </section>
+            <section id="deployment-log" class="card log-card" aria-labelledby="log-heading">
+                <div class="section-heading"><h2 id="log-heading"><svg aria-hidden="true"><use href="#icon-terminal"/></svg>Deployment log</h2><span id="deploymentStatus" class="status" data-state="idle">Ready</span></div>
+                <p class="section-note">Follow your installation as it happens.</p>
+                <div id="output" class="terminal" role="log" aria-label="Installation progress" aria-live="polite" aria-relevant="additions text"><div class="log-entry terminal-muted"><span aria-hidden="true">›</span><span>Waiting for your installation.</span></div><div class="log-entry terminal-muted"><span aria-hidden="true">›</span><span>Deployment events will appear here.</span></div></div>
+                <div class="log-footer"><span id="destinationLabel">DESTINATION / WORKERS</span><span>HESARI OS WIZARD</span></div>
+                <div id="deploymentResult" class="result-card" role="status" hidden><div class="result-heading"><svg aria-hidden="true"><use href="#icon-check"/></svg><strong>Your workspace is ready.</strong></div><p>Open your panel to finish setting up HESARI OS.</p><a id="liveUrl" class="button primary-button" target="_blank" rel="noopener noreferrer">Open HESARI OS</a><button id="copyPanelURL" type="button" class="button secondary-button"><svg aria-hidden="true"><use href="#icon-copy"/></svg><span>Copy panel link</span></button></div>
+                <div id="privateLinkCard" class="private-link-card" hidden><strong>Make your next install simpler.</strong><p>Save your private installer link to reuse this account. Anyone with this link can install using your token; keep it private.</p><button id="copyURL" type="button" class="text-button"><svg aria-hidden="true"><use href="#icon-copy"/></svg><span>Copy private installer link</span></button></div>
+            </section>
+            <section id="command-line" class="card cli-card" aria-labelledby="cli-heading"><div><h2 id="cli-heading"><svg aria-hidden="true"><use href="#icon-code"/></svg>Prefer the command line?</h2><p class="section-note">The same workspace, installed from your terminal. Supports multiple Cloudflare logins.</p></div><div class="cli-controls"><div class="platform-tabs" role="tablist" aria-label="Operating system"><button id="unixTab" role="tab" type="button" aria-selected="true" aria-controls="unixPanel">macOS / Linux / Termux</button><button id="windowsTab" role="tab" type="button" aria-selected="false" aria-controls="windowsPanel" tabindex="-1">Windows</button></div><div id="unixPanel" class="command-box" role="tabpanel" aria-labelledby="unixTab"><code id="unixCommand">bash &lt;(curl -fsSL https://raw.githubusercontent.com/mjhesari/Hesari-Os-Wizard/main/install.sh)</code><button type="button" class="icon-button copy-command" data-command="unixCommand" aria-label="Copy macOS, Linux and Termux command"><svg aria-hidden="true"><use href="#icon-copy"/></svg></button></div><div id="windowsPanel" class="command-box" role="tabpanel" aria-labelledby="windowsTab" hidden><code id="windowsCommand">irm https://raw.githubusercontent.com/mjhesari/Hesari-Os-Wizard/main/install.ps1 | iex</code><button type="button" class="icon-button copy-command" data-command="windowsCommand" aria-label="Copy Windows command"><svg aria-hidden="true"><use href="#icon-copy"/></svg></button></div></div></section>
+        </div>
+        <footer class="brand-footer"><p>HESARI OS · Build. Manage. Evolve.</p><p>By <a href="https://mj-hesari.ir" target="_blank" rel="noopener noreferrer">MJ Hesari</a> · Network engine based on <a href="https://github.com/bia-pain-bache/BPB-Worker-Panel" target="_blank" rel="noopener noreferrer">BPB Panel</a> · GPL-3.0</p></footer>
+    </main>
+    <div id="clipboardStatus" class="clipboard-status" role="status" hidden></div>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+        <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+        <symbol id="icon-cloud" viewBox="0 0 24 24"><path d="M7 18a5 5 0 1 1 0-10 6 6 0 0 1 11.5 1.5A4.3 4.3 0 0 1 18 18M12 21V11m-4 4 4-4 4 4"/></symbol>
+        <symbol id="icon-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3m6 0h4"/></symbol>
+        <symbol id="icon-code" viewBox="0 0 24 24"><path d="m7 7-5 5 5 5m10-10 5 5-5 5M14 4l-4 16"/></symbol>
+        <symbol id="icon-layers" viewBox="0 0 24 24"><path d="m12 3 10 6-10 6L2 9l10-6ZM2 15l10 6 10-6M2 12l10 6 10-6"/></symbol>
+        <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    </defs></svg>
+</body>
+</html>

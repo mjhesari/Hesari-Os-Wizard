@@ -1,0 +1,80 @@
+name: Test and release
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: npm ci
+      - run: npm run check && npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - run: go test ./... && go vet ./...
+      - run: bash -n install.sh
+      - run: npx wrangler deploy --dry-run
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - shell: pwsh
+        run: ./tests/powershell/installer.tests.ps1
+      - shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$pwd/install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { throw ($errors | Out-String) }
+  build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, powershell]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64, arm, '386']
+        exclude:
+          - {goos: darwin, goarch: arm}
+          - {goos: darwin, goarch: '386'}
+          - {goos: windows, goarch: arm}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make build VERSION="$(cat VERSION)" GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wizard-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/HESARI-Wizard-*
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: cd dist && sha256sum HESARI-Wizard-* > SHA256SUMS
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --title "HESARI OS Wizard $GITHUB_REF_NAME" --notes-file RELEASE.md
+        env:
+          GH_TOKEN: ${{ github.token }}

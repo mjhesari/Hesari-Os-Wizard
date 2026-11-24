@@ -1,0 +1,16 @@
+node_modules/
+.test-build/
+dist/
+bin/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+.DS_Store
+bpb-wizard/
+hesari-wizard/
+*.zip
+*.tar.gz

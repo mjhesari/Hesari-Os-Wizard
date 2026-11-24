@@ -1,0 +1,38 @@
+{
+  "name": "hesari-os-wizard",
+  "version": "3.1.0",
+  "description": "HESARI OS installer for Cloudflare Workers and Pages",
+  "main": "web/src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mjhesari/Hesari-Os-Wizard.git"
+  },
+  "author": "MJ Hesari",
+  "license": "GPL-3.0",
+  "private": true,
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/mjhesari/Hesari-Os-Wizard/issues"
+  },
+  "homepage": "https://github.com/mjhesari/Hesari-Os-Wizard#readme",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260716.1",
+    "typescript": "^7.0.2",
+    "esbuild": "^0.28.0",
+    "@playwright/test": "^1.58.0",
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "cloudflare": "^7.0.0"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "node scripts/build.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:ui": "playwright test",
+    "preview": "node scripts/preview.mjs",
+    "release:checksums": "node scripts/checksums.mjs dist"
+  }
+}
