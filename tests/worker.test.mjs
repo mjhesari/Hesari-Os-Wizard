@@ -141,7 +141,11 @@ test('Cross-origin and missing-origin installation requests are rejected before 
 });
 
 test('The home page is served with private-link referrer and cache protections', async () => {
-    const response = await worker.fetch(new Request(origin), { ASSETS: assets });
+    const response = await worker.fetch(new Request(origin), { ASSETS: { fetch: async request => {
+        assert.ok(request instanceof Request, 'Asset bindings must receive a Request');
+        assert.equal(new URL(request.url).pathname, '/');
+        return new Response('HESARI OS assets');
+    } } });
     assert.equal(await response.text(), 'HESARI OS assets');
     assert.equal(response.headers.get('Referrer-Policy'), 'no-referrer');
     assert.equal(response.headers.get('Cache-Control'), 'no-store');

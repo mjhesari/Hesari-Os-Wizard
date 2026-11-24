@@ -1,12 +1,11 @@
-import { CFAccount } from "./api";
+import type { CFAccount } from "./api";
 import { decrypt, encrypt, validateSecret } from "./encryption";
 import { randSubdomain } from "./random";
-import { buildScript } from "./script";
 import { createStreamLogger, StreamLogger } from "./logger";
 
 export interface Env {
     SECRET: string;
-    ASSETS: { fetch: (request: Request | URL) => Promise<Response> };
+    ASSETS: { fetch: (request: Request) => Promise<Response> };
 }
 
 export default {
@@ -33,6 +32,7 @@ export default {
                     const deployType = formData.get('deployType')?.toString() || 'workers';
                     if (!apiToken) throw new Error('Enter a Cloudflare API token.');
                     if (!['workers', 'pages'].includes(deployType)) throw new Error('Choose Workers or Pages.');
+                    const { CFAccount } = await import('./api');
                     const account = await CFAccount.create(apiToken);
 
                     let workerName: string;
@@ -67,7 +67,7 @@ export default {
         }
 
         if (url.pathname === '/') {
-            const response = await env.ASSETS.fetch(new URL('/index.html', request.url));
+            const response = await env.ASSETS.fetch(request);
             const headers = new Headers(response.headers);
             headers.set('Referrer-Policy', 'no-referrer');
             headers.set('Cache-Control', 'no-store');
@@ -88,6 +88,7 @@ async function deployPages(
 ) {
     const { success, complete } = logger;
 
+    const { buildScript } = await import('./script');
     const { script, path } = await buildScript(account, workerName, 'pages.dev', '_worker.js', preRelease);
     success('Script built successfully!');
 
@@ -125,6 +126,7 @@ async function deployWorkers(
         success('Fresh account, Workers subdomain created successfully!');
     }
 
+    const { buildScript } = await import('./script');
     const { script, path } = await buildScript(account, workerName, subdomain, 'worker.js', preRelease);
     success('Script built successfully!');
 
