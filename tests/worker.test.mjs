@@ -4,76 +4,9 @@ import worker from '../dist/worker.mjs';
 import { encrypt, decrypt } from '../.test-build/encryption.js';
 import { panelWorkerURL } from '../.test-build/config.js';
 
-const secret = 'test-only-secret-with-at-least-32-characters';
-const token = 'test-cloudflare-token';
+import { deploy, accountID, token, secret, panelSource, assets } from './helpers/installation.mjs';
+import { parseWorkerBundle, unpackSource } from '../shared/worker-bundle.js';
 const origin = 'https://wizard.example';
-const accountID = 'account-test';
-const assets = { fetch: async () => new Response('HESARI OS assets') };
-const json = (result, status = 200) => Response.json({ success: status < 400, result, errors: status >= 400 ? [{ code: 1000, message: 'Test failure' }] : [] }, { status });
-
-function cloudflareMock({ fresh = false, noAccounts = false, inactive = false, forbidden = false, downloadFailure = false } = {}) {
-    const calls = [];
-    const uploads = [];
-    return {
-        calls, uploads,
-        fetch: async (input, init) => {
-            const req = new Request(input, init);
-            const url = new URL(req.url);
-            calls.push({ method: req.method, url: req.url });
-            if (url.hostname === 'github.com') {
-                assert.equal(req.url, 'https://github.com/mjhesari/Hesari-Os/releases/latest/download/worker.js');
-                return new Response('export default {fetch(){return new Response("HESARI OS")}};', { status: downloadFailure ? 503 : 200 });
-            }
-            assert.equal(url.hostname, 'api.cloudflare.com');
-            assert.equal(req.headers.get('Authorization'), `Bearer ${token}`);
-            const path = url.pathname.replace('/client/v4', '');
-            if (path === '/user/tokens/verify') return json({ status: inactive ? 'disabled' : 'active' });
-            if (path === '/accounts') return json(noAccounts ? [] : [{ id: accountID }]);
-            if (path === '/user') return json({ email: 'owner@example.com' });
-            if (path.endsWith('/storage/kv/namespaces') && req.method === 'POST') return json({ id: 'kv-test' });
-            if (path.endsWith('/workers/subdomain')) {
-                if (req.method === 'GET') return fresh ? json(null, 404) : json({ subdomain: 'existing' });
-                return json({ subdomain: 'fresh-account' });
-            }
-            if (path.includes('/workers/scripts/')) {
-                if (req.method === 'GET') return json(null, forbidden ? 403 : 404);
-                if (req.method === 'PUT') {
-                    const data = await req.formData();
-                    uploads.push({ metadata: JSON.parse(await data.get('metadata').text()), script: await data.get('worker.js').text(), name: path.split('/').at(-1) });
-                    return json({ id: 'worker-test' });
-                }
-                if (path.endsWith('/subdomain')) return json({ enabled: true });
-            }
-            if (path.endsWith('/pages/projects') && req.method === 'POST') {
-                const data = await req.json();
-                assert.equal(data.deployment_configs.production.kv_namespaces.kv.namespace_id, 'kv-test');
-                return json({ subdomain: `${data.name}.pages.dev` });
-            }
-            if (path.includes('/pages/projects/')) {
-                if (req.method === 'GET') return json(null, 404);
-                if (path.endsWith('/deployments')) {
-                    const data = await req.formData();
-                    uploads.push({ script: await data.get('_worker.js').text() });
-                    return json({ id: 'pages-deploy' });
-                }
-            }
-            throw new Error(`Unmocked request: ${req.method} ${req.url}`);
-        }
-    };
-}
-
-async function deploy(t, options = {}) {
-    const mock = cloudflareMock(options);
-    t.mock.method(globalThis, 'fetch', mock.fetch);
-    const data = new FormData();
-    data.set('apiToken', options.emptyToken ? '' : token);
-    data.set('deployType', options.deployType || 'workers');
-    if (options.privateKey) data.set('privateKey', options.privateKey);
-    const req = new Request(`${origin}/api/deploy`, { method: 'POST', headers: { Origin: origin }, body: data });
-    const response = await worker.fetch(req, { SECRET: options.secret ?? secret, ASSETS: assets });
-    const messages = (await response.text()).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
-    return { response, messages, ...mock };
-}
 
 for (const fresh of [false, true]) test(`Workers installation with ${fresh ? 'fresh' : 'existing'} account embeds settings and returns a valid URL`, async t => {
     const { response, messages, uploads } = await deploy(t, { fresh });
@@ -85,10 +18,11 @@ for (const fresh of [false, true]) test(`Workers installation with ${fresh ? 'fr
     assert.match(url.pathname, /^\/[\w-]+\/panel$/);
     assert.equal(await decrypt(result.key, secret), token);
     assert.equal(uploads.length, 1);
-    assert.equal(uploads[0].metadata.bindings[0].name, 'kv');
+    const bundle = parseWorkerBundle(uploads[0].script);
+    assert.equal(uploads[0].metadata.bindings[0].name, bundle.profile.kvBinding);
+    assert.equal(await unpackSource(bundle.source), uploads[0].script.split('\n').slice(1).join('\n'));
     assert.equal(uploads[0].metadata.bindings[0].namespace_id, 'kv-test');
-    const match = uploads[0].script.match(/const EMBEDED_SETTINGS = (\{[^\n]+?\});/);
-    const settings = JSON.parse(match[1]);
+    const settings = bundle.config;
     assert.equal(settings.accID, accountID);
     assert.equal(settings.apiToken, token);
     assert.equal(settings.securePath, url.pathname.split('/')[1]);
@@ -99,11 +33,47 @@ for (const fresh of [false, true]) test(`Workers installation with ${fresh ? 'fr
 });
 
 test('Pages installation binds KV, uploads _worker.js and returns the private panel path', async t => {
-    const { messages, uploads } = await deploy(t, { deployType: 'pages' });
+    const { messages, uploads, projects } = await deploy(t, { deployType: 'pages' });
     assert.equal(messages.some(message => message.type === 'error'), false, JSON.stringify(messages));
     const result = JSON.parse(messages.find(message => message.type === 'complete').message);
     assert.ok(new URL(result.url).hostname.endsWith('.pages.dev'));
-    assert.match(uploads[0].script, /const EMBEDED_SETTINGS/);
+    const bundle = parseWorkerBundle(uploads[0].script);
+    assert.deepEqual(Object.keys(projects[0].deployment_configs.production.kv_namespaces), [bundle.profile.kvBinding]);
+    assert.equal(bundle.config.mainDomain, new URL(result.url).hostname);
+});
+
+function mutateBundle(role, value) {
+    const end = panelSource.indexOf('\n');
+    const values = JSON.parse(panelSource.slice('Object.assign(globalThis,'.length, end - 2));
+    const { profile } = parseWorkerBundle(panelSource);
+    values[profile.names[role]] = value;
+    return `Object.assign(globalThis,${JSON.stringify(values)});${panelSource.slice(end)}`;
+}
+
+for (const deployType of ['workers', 'pages']) {
+    for (const [name, source] of [
+        ['legacy', 'const EMBEDED_SETTINGS = {}; export default {};'],
+        ['HTML', '<html>private-test-token</html>'],
+        ['truncated', panelSource.slice(0, -10)],
+        ['asset gzip', panelSource.replace(/H4sI[A-Za-z0-9+/=]+/, 'invalid-gzip')],
+        ['source gzip', mutateBundle('source', 'invalid-gzip-private-test-token')],
+        ['profile version', mutateBundle('profile', { ...parseWorkerBundle(panelSource).profile, format: 2 })],
+        ['fixed binding', mutateBundle('profile', { ...parseWorkerBundle(panelSource).profile, kvBinding: 'kv' })]
+    ]) test(`${deployType} rejects ${name} bundles before upload`, async t => {
+        const { messages, uploads, projects } = await deploy(t, { deployType, source });
+        const failure = messages.find(message => message.type === 'error');
+        assert.match(failure?.message, /Incompatible or corrupt panel worker bundle/);
+        assert.doesNotMatch(failure.message, /private-test-token/);
+        assert.equal(uploads.length, 0);
+        assert.equal(projects.length, 0);
+        assert.equal(messages.some(message => message.type === 'complete'), false);
+    });
+}
+
+for (const deployType of ['workers', 'pages']) test(`${deployType} provider deployment errors do not echo credentials`, async t => {
+    const { messages } = await deploy(t, { providerFailure: true, deployType });
+    assert.match(messages.find(message => message.type === 'error').message, /400/);
+    assert.doesNotMatch(JSON.stringify(messages), /test-cloudflare-token|private-password/);
 });
 
 test('A private installer key can be sent in the POST body without a raw token', async t => {

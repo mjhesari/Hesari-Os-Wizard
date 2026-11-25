@@ -1,18 +1,17 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
 
 type EmbeddedSettings struct {
+	kvBinding   string
 	AccID       string   `json:"accID"`
 	AccEmail    string   `json:"accEmail"`
 	ApiToken    string   `json:"apiToken"`
@@ -72,21 +71,16 @@ func renderScript(raw string, acc *CfAccount, workerName, subdomain string) (io.
 		MainDomain:  fmt.Sprintf("%s.%s", workerName, subdomain),
 	}
 
-	settingsJSON, err := json.Marshal(settings)
+	profile, err := createRuntimeProfile()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	buildTimestamp := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	randCode := randCode()
-	script := fmt.Sprintf(
-		"// %s\n// %s\n// @ts-nocheck\n%s\nconst EMBEDED_SETTINGS = %s;%s",
-		acc.Email,
-		buildTimestamp,
-		randCode,
-		string(settingsJSON),
-		raw,
-	)
+	script, err := personalizeWorkerBundle(raw, profile, settings)
+	if err != nil {
+		return nil, nil, err
+	}
+	settings.kvBinding = profile.KVBinding
 	var reader io.Reader = strings.NewReader(script)
 
 	return reader, settings, nil

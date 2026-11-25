@@ -68,7 +68,7 @@ func DeployToWorkers(ctx context.Context, acc *CfAccount, logger *Logger, worker
 	}
 	logger.Success("Script built successfully!")
 
-	if err := acc.DeployWorker(ctx, workerName, script, namespaceID); err != nil {
+	if err := acc.DeployWorker(ctx, workerName, script, namespaceID, settings.kvBinding); err != nil {
 		logger.Fatal(err)
 	}
 	logger.Success("Worker deployed successfully!")
@@ -89,7 +89,7 @@ func DeployToPages(ctx context.Context, acc *CfAccount, logger *Logger, workerNa
 	}
 	logger.Success("Script built successfully!")
 
-	subdomain, err := acc.CreatePagesProject(ctx, workerName, namespaceID)
+	subdomain, err := acc.CreatePagesProject(ctx, workerName, namespaceID, settings.kvBinding)
 	if err != nil {
 		logger.Fatal(err)
 	}

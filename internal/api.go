@@ -186,7 +186,7 @@ func (acc *CfAccount) CreateWorkersDevSubdomain(ctx context.Context) (string, er
 	return "", fmt.Errorf("Failed to create a unique workers.dev subdomain after %d attempts.", maxAttempts)
 }
 
-func (acc *CfAccount) DeployWorker(ctx context.Context, name string, script io.Reader, namespaceID string) error {
+func (acc *CfAccount) DeployWorker(ctx context.Context, name string, script io.Reader, namespaceID, kvBinding string) error {
 	_, err := acc.Client.Workers.Scripts.Update(
 		ctx,
 		name,
@@ -198,7 +198,7 @@ func (acc *CfAccount) DeployWorker(ctx context.Context, name string, script io.R
 				CompatibilityFlags: cloudflare.F([]string{"nodejs_compat"}),
 				Bindings: cloudflare.F([]workers.ScriptUpdateParamsMetadataBindingUnion{
 					workers.ScriptUpdateParamsMetadataBindingsWorkersBindingKindKVNamespace{
-						Name:        cloudflare.F("kv"),
+						Name:        cloudflare.F(kvBinding),
 						NamespaceID: cloudflare.F(namespaceID),
 						Type:        cloudflare.F(workers.ScriptUpdateParamsMetadataBindingsWorkersBindingKindKVNamespaceTypeKVNamespace),
 					},
@@ -236,8 +236,8 @@ func (acc *CfAccount) EnableSubdomain(ctx context.Context, subdomain string) err
 	return nil
 }
 
-func (acc *CfAccount) CreatePagesProject(ctx context.Context, name, namespaceID string) (string, error) {
-	project, err := acc.Client.Pages.Projects.New(context.TODO(), pages.ProjectNewParams{
+func (acc *CfAccount) CreatePagesProject(ctx context.Context, name, namespaceID, kvBinding string) (string, error) {
+	project, err := acc.Client.Pages.Projects.New(ctx, pages.ProjectNewParams{
 		AccountID:        cloudflare.F(acc.ID),
 		Name:             cloudflare.F(name),
 		ProductionBranch: cloudflare.F("main"),
@@ -247,7 +247,7 @@ func (acc *CfAccount) CreatePagesProject(ctx context.Context, name, namespaceID 
 				CompatibilityDate:  cloudflare.F(time.Now().UTC().Format("2006-01-02")),
 				CompatibilityFlags: cloudflare.F([]string{"nodejs_compat"}),
 				KVNamespaces: cloudflare.F(map[string]pages.ProjectNewParamsDeploymentConfigsProductionKVNamespaces{
-					"kv": {NamespaceID: cloudflare.F(namespaceID)},
+					kvBinding: {NamespaceID: cloudflare.F(namespaceID)},
 				}),
 			}),
 		}),
@@ -267,7 +267,7 @@ func (acc *CfAccount) DeployPagesScript(ctx context.Context, name string, script
 			AccountID: cloudflare.F(acc.ID),
 			Branch:    cloudflare.F("main"),
 			Manifest:  cloudflare.F("{}"),
-			WorkerJS:  cloudflare.F(script),
+			WorkerJS:  cloudflare.F(cloudflare.FileParam(script, "_worker.js", "application/javascript+module").Value),
 		},
 	)
 	if er != nil {

@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,7 +21,8 @@ import (
 
 func TestRenderScript(t *testing.T) {
 	acc := &CfAccount{ID: "account-test", Email: "test@example.com", Token: "test-token"}
-	reader, settings, err := renderScript("export default {};", acc, "workspace", "owner.workers.dev")
+	raw := panelFixture(t)
+	reader, settings, err := renderScript(raw, acc, "workspace", "owner.workers.dev")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,16 +30,16 @@ func TestRenderScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	match := regexp.MustCompile(`const EMBEDED_SETTINGS = (\{[^\n]+?\});`).FindSubmatch(body)
-	if match == nil {
-		t.Fatal("embedded settings missing")
+	bundle, err := parseWorkerBundle(string(body))
+	if err != nil {
+		t.Fatal(err)
 	}
 	var decoded EmbeddedSettings
-	if err := json.Unmarshal(match[1], &decoded); err != nil {
+	if err := json.Unmarshal(bundle.Config, &decoded); err != nil {
 		t.Fatal(err)
 	}
 	if decoded.AccID != acc.ID || decoded.ApiToken != acc.Token || decoded.MainDomain != "workspace.owner.workers.dev" {
-		t.Fatalf("incorrect settings: %+v", decoded)
+		t.Fatal("incorrect embedded settings")
 	}
 	if !regexp.MustCompile(`^[\w-]{16,32}$`).MatchString(settings.SecurePath) {
 		t.Fatal("invalid secure path")
@@ -44,13 +47,31 @@ func TestRenderScript(t *testing.T) {
 	if len(settings.TrPass) < 16 || len(settings.VlUUID) != 36 {
 		t.Fatal("missing credentials")
 	}
-	if !strings.HasSuffix(string(body), "export default {};") {
-		t.Fatal("panel source was not preserved")
+	if bundle.Profile.KVBinding != settings.kvBinding {
+		t.Fatal("binding differs from worker profile")
 	}
-	_, second, _ := renderScript("export default {};", acc, "workspace", "owner.workers.dev")
-	if settings.SecurePath == second.SecurePath || settings.TrPass == second.TrPass || settings.VlUUID == second.VlUUID {
+	_, second, _ := renderScript(raw, acc, "workspace", "owner.workers.dev")
+	if settings.SecurePath == second.SecurePath || settings.TrPass == second.TrPass || settings.VlUUID == second.VlUUID || settings.kvBinding == second.kvBinding {
 		t.Fatal("credentials reused")
 	}
+}
+
+func panelFixture(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile("../tests/fixtures/panel-worker.js.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	source, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(source)
 }
 
 func TestLoginSelection(t *testing.T) {

@@ -90,7 +90,7 @@ export class CFAccount {
         throw new Error(`Failed to create a unique workers.dev subdomain after ${maxAttempts} attempts.`);
     }
 
-    async deployWorker(name: string, script: Uploadable, namespaceId: string) {
+    async deployWorker(name: string, script: Uploadable, namespaceId: string, kvBinding: string) {
         // TS SDK has bugs for workers deployment - Uploading files
         const date = new Date().toISOString().split('T')[0];
         const metadata = {
@@ -98,7 +98,7 @@ export class CFAccount {
             compatibility_date: date,
             compatibility_flags: ['nodejs_compat'],
             bindings: [
-                { type: 'kv_namespace', name: 'kv', namespace_id: namespaceId }
+                { type: 'kv_namespace', name: kvBinding, namespace_id: namespaceId }
             ]
         };
 
@@ -112,25 +112,12 @@ export class CFAccount {
             body: uploadForm
         });
 
-        const data = await res.json() as any;
+        const data = await res.json().catch(() => {
+            throw new Error('Cloudflare returned an invalid deployment response.');
+        }) as any;
         if (!res.ok || !data.success) {
-            throw new Error(`Error deploying worker: ${JSON.stringify(data.errors, null, 2)}`)
+            throw new Error(`Error deploying worker (HTTP ${res.status}).`)
         }
-
-        // await this.client.workers.scripts.update(name, {
-        //     account_id: this.id,
-        //     metadata: {
-        //         main_module: 'worker.js',
-        //         compatibility_date: date,
-        //         compatibility_flags: ['nodejs_compat'],
-        //         bindings: [{
-        //             name: 'kv',
-        //             namespace_id: namespaceId,
-        //             type: 'kv_namespace',
-        //         }],
-        //     },
-        //     files: [uploadable]
-        // });
     }
 
     async enableSubdomain(name: string) {
@@ -141,7 +128,7 @@ export class CFAccount {
         });
     }
 
-    async createPagesProject(name: string, namespaceId: string): Promise<string> {
+    async createPagesProject(name: string, namespaceId: string, kvBinding: string): Promise<string> {
         const date = new Date().toISOString().split('T')[0];
 
         const project = await this.client.pages.projects.create({
@@ -154,7 +141,7 @@ export class CFAccount {
                     compatibility_date: date,
                     compatibility_flags: ['nodejs_compat'],
                     kv_namespaces: {
-                        'kv': { namespace_id: namespaceId }
+                        [kvBinding]: { namespace_id: namespaceId }
                     }
                 }
             }

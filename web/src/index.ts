@@ -2,6 +2,7 @@ import type { CFAccount } from "./api";
 import { decrypt, encrypt, validateSecret } from "./encryption";
 import { randSubdomain } from "./random";
 import { createStreamLogger, StreamLogger } from "./logger";
+import { APIError } from 'cloudflare';
 
 export interface Env {
     SECRET: string;
@@ -50,7 +51,9 @@ export default {
                         await deployWorkers(env, account, workerName, namespaceId, logger, preRelease);
                     }
                 } catch (err) {
-                    const message = err instanceof Error ? err.message : 'Unexpected installation error.';
+                    const message = err instanceof APIError
+                        ? `Cloudflare request failed${err.status ? ` (HTTP ${err.status})` : ''}.`
+                        : err instanceof Error ? err.message : 'Unexpected installation error.';
                     error(`Could not install HESARI OS: ${message}`);
                 } finally {
                     close();
@@ -89,10 +92,10 @@ async function deployPages(
     const { success, complete } = logger;
 
     const { buildScript } = await import('./script');
-    const { script, path } = await buildScript(account, workerName, 'pages.dev', '_worker.js', preRelease);
+    const { script, path, kvBinding } = await buildScript(account, workerName, 'pages.dev', '_worker.js', preRelease);
     success('Script built successfully!');
 
-    const subdomain = await account.createPagesProject(workerName, namespaceId);
+    const subdomain = await account.createPagesProject(workerName, namespaceId, kvBinding);
     success('Pages project created successfully!');
 
     await account.deployPages(workerName, script);
@@ -127,10 +130,10 @@ async function deployWorkers(
     }
 
     const { buildScript } = await import('./script');
-    const { script, path } = await buildScript(account, workerName, subdomain, 'worker.js', preRelease);
+    const { script, path, kvBinding } = await buildScript(account, workerName, subdomain, 'worker.js', preRelease);
     success('Script built successfully!');
 
-    await account.deployWorker(workerName, script, namespaceId);
+    await account.deployWorker(workerName, script, namespaceId, kvBinding);
     success('Worker deployed successfully!');
 
     await account.enableSubdomain(workerName);

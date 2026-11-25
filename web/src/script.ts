@@ -1,11 +1,13 @@
 import { toFile, Uploadable } from "cloudflare";
 import { CFAccount } from "./api";
-import { randCode, randString } from "./random";
+import { randString } from "./random";
 import { panelWorkerURL } from './config';
+import { prepareWorkerBundle } from './bundle';
 
 interface Script {
     script: Uploadable;
     path: string;
+    kvBinding: string;
 }
 
 export async function buildScript(
@@ -26,8 +28,6 @@ export async function buildScript(
     }
 
     const script = await res.text();
-    const buildTimestamp = new Date().toISOString();
-    const randomCode = randCode();
     const path = randString(pathCharset, 12, 16);
 
     const embededSettings = {
@@ -45,12 +45,7 @@ export async function buildScript(
         mainDomain: `${workerName}.${subdomain}`
     };
 
-    const worker = [
-        `// ${account.email}`,
-        `// Build: ${buildTimestamp}`,
-        '// @ts-nocheck',
-        `${randomCode}const EMBEDED_SETTINGS = ${JSON.stringify(embededSettings)};${script}`
-    ].join('\n');
+    const { worker, profile } = await prepareWorkerBundle(script, embededSettings);
 
     const file = new TextEncoder().encode(worker);
     const uploadable: Uploadable = await toFile(file, filename, {
@@ -59,6 +54,7 @@ export async function buildScript(
 
     return {
         script: uploadable,
-        path: path
+        path: path,
+        kvBinding: profile.kvBinding
     }
 }
